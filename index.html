@@ -6,6 +6,7 @@
     <title>Organizador de Objetos</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1a1a2e">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -267,7 +268,6 @@
         const STORE_NAME = 'objetos';
         let db = null;
         
-        // IndexedDB
         function initDB() {
             return new Promise((resolve, reject) => {
                 const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -326,7 +326,6 @@
             render();
         }
         
-        // Toast
         function showToast(msg) {
             const existing = document.querySelector('.toast');
             if (existing) existing.remove();
@@ -337,7 +336,6 @@
             setTimeout(() => toast.remove(), 2500);
         }
         
-        // Tab Bar
         function renderTabBar() {
             const tabs = [
                 { id: 'home', icon: '🏠', label: 'Início' },
@@ -361,7 +359,6 @@
             render();
         }
         
-        // Home
         function renderHome() {
             const header = `
                 <div class="header">
@@ -399,7 +396,6 @@
             app.innerHTML = header + grid;
         }
         
-        // Adicionar
         let fotoBase64 = '';
         
         function renderAdicionar() {
@@ -491,7 +487,6 @@
             showToast('Objeto salvo com sucesso!');
         }
         
-        // Buscar
         function renderBuscar() {
             app.innerHTML = `
                 <div class="header">
@@ -540,7 +535,6 @@
             container.innerHTML = html;
         }
         
-        // Galeria
         function renderGaleria() {
             const header = `
                 <div class="header">
@@ -567,7 +561,6 @@
             app.innerHTML = header + grid;
         }
         
-        // Detalhes
         function showDetail(id) {
             const obj = state.objetos.find(o => o.id === id);
             if (!obj) return;
@@ -608,8 +601,7 @@
                 showToast('Objeto excluído!');
             }
         }
-
-        // Backup
+        
         function renderBackup() {
             const total = state.objetos.length;
             app.innerHTML = `
@@ -638,7 +630,7 @@
                 </div>
             `;
         }
-
+        
         function exportarBackup() {
             const dados = {
                 versao: 1,
@@ -656,7 +648,7 @@
             
             showToast('Backup exportado com sucesso!');
         }
-
+        
         function importarBackup(input) {
             if (!input.files || !input.files[0]) return;
             
@@ -690,7 +682,6 @@
             reader.readAsText(file);
         }
         
-        // Main render
         function render() {
             renderTabBar();
             switch(state.tab) {
@@ -702,38 +693,10 @@
             }
         }
         
-        // Init
-        async function init() {
-            try {
-                await initDB();
-                await loadObjetos();
-            } catch(e) {
-                console.error(e);
-                app.innerHTML = '<div class="empty-state"><p>Erro ao inicializar banco de dados</p></div>';
-            }
-        }
-        
-        // Service Worker
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').catch(() => {});
-        }
-
-        // Auto backup ao fechar/sair
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'hidden' && state.objetos.length > 0) {
-                localStorage.setItem('backup_auto', JSON.stringify({
-                    data: new Date().toISOString(),
-                    objetos: state.objetos
-                }));
-            }
-        });
-
-        // Tenta restaurar auto backup ao iniciar
         async function init() {
             try {
                 await initDB();
                 
-                // Restaura auto backup se não houver dados
                 const autoBackup = localStorage.getItem('backup_auto');
                 if (autoBackup && state.objetos.length === 0) {
                     try {
@@ -752,6 +715,21 @@
                 app.innerHTML = '<div class="empty-state"><p>Erro ao inicializar banco de dados</p></div>';
             }
         }
+        
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden' && state.objetos.length > 0) {
+                localStorage.setItem('backup_auto', JSON.stringify({
+                    data: new Date().toISOString(),
+                    objetos: state.objetos
+                }));
+            }
+        });
+        
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(() => {});
+        }
+        
+        init();
     </script>
 </body>
 </html>
