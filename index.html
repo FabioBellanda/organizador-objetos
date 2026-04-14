@@ -8,6 +8,7 @@
     <meta name="theme-color" content="#1a1a2e">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
@@ -342,7 +343,8 @@
                 { id: 'home', icon: '🏠', label: 'Início' },
                 { id: 'buscar', icon: '🔍', label: 'Buscar' },
                 { id: 'adicionar', icon: '➕', label: 'Adicionar' },
-                { id: 'galeria', icon: '🖼️', label: 'Galeria' }
+                { id: 'galeria', icon: '🖼️', label: 'Galeria' },
+                { id: 'backup', icon: '💾', label: 'Backup' }
             ];
             
             let html = '';
@@ -606,6 +608,87 @@
                 showToast('Objeto excluído!');
             }
         }
+
+        // Backup
+        function renderBackup() {
+            const total = state.objetos.length;
+            app.innerHTML = `
+                <div class="header">
+                    <h1>💾 Backup</h1>
+                    <p>${total} objeto(s) cadastrado(s)</p>
+                </div>
+                <div style="padding: 20px;">
+                    <p style="margin-bottom: 20px; color: #888; font-size: 14px;">
+                        Exporte seus dados para não perder caso precise reinstalar o app.
+                    </p>
+                    
+                    <button class="btn-primary" onclick="exportarBackup()" style="margin-bottom: 12px;">
+                        📤 Exportar Backup
+                    </button>
+                    
+                    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--accent);">
+                        <p style="margin-bottom: 15px; color: #888; font-size: 14px;">
+                            Restaurar backup anterior:
+                        </p>
+                        <input type="file" id="import-file" accept=".json" onchange="importarBackup(this)" style="display: none;">
+                        <button class="btn-secondary" onclick="document.getElementById('import-file').click()" style="width: 100%;">
+                            📥 Importar Backup
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function exportarBackup() {
+            const dados = {
+                versao: 1,
+                data: new Date().toISOString(),
+                objetos: state.objetos
+            };
+            
+            const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `backup-objetos-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showToast('Backup exportado com sucesso!');
+        }
+
+        function importarBackup(input) {
+            if (!input.files || !input.files[0]) return;
+            
+            const file = input.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = async function(e) {
+                try {
+                    const dados = JSON.parse(e.target.result);
+                    
+                    if (!dados.objetos || !Array.isArray(dados.objetos)) {
+                        showToast('Arquivo de backup inválido');
+                        return;
+                    }
+                    
+                    const total = dados.objetos.length;
+                    
+                    for (const obj of dados.objetos) {
+                        await addObjeto(obj);
+                    }
+                    
+                    await loadObjetos();
+                    showToast(`${total} objeto(s) restaurado(s)!`);
+                    input.value = '';
+                } catch(err) {
+                    showToast('Erro ao importar backup');
+                    console.error(err);
+                }
+            };
+            
+            reader.readAsText(file);
+        }
         
         // Main render
         function render() {
@@ -615,6 +698,7 @@
                 case 'buscar': renderBuscar(); break;
                 case 'adicionar': renderAdicionar(); break;
                 case 'galeria': renderGaleria(); break;
+                case 'backup': renderBackup(); break;
             }
         }
         
@@ -633,8 +717,41 @@
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js').catch(() => {});
         }
-        
-        init();
+
+        // Auto backup ao fechar/sair
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden' && state.objetos.length > 0) {
+                localStorage.setItem('backup_auto', JSON.stringify({
+                    data: new Date().toISOString(),
+                    objetos: state.objetos
+                }));
+            }
+        });
+
+        // Tenta restaurar auto backup ao iniciar
+        async function init() {
+            try {
+                await initDB();
+                
+                // Restaura auto backup se não houver dados
+                const autoBackup = localStorage.getItem('backup_auto');
+                if (autoBackup && state.objetos.length === 0) {
+                    try {
+                        const dados = JSON.parse(autoBackup);
+                        if (dados.objetos && dados.objetos.length > 0) {
+                            for (const obj of dados.objetos) {
+                                await addObjeto(obj);
+                            }
+                        }
+                    } catch(e) {}
+                }
+                
+                await loadObjetos();
+            } catch(e) {
+                console.error(e);
+                app.innerHTML = '<div class="empty-state"><p>Erro ao inicializar banco de dados</p></div>';
+            }
+        }
     </script>
 </body>
 </html>
