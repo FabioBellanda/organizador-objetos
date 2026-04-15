@@ -652,6 +652,10 @@
         function importarBackup(input) {
             if (!input.files || !input.files[0]) return;
             
+            if (!confirm('Isso irá adicionar todos os objetos do backup aos que já existem. Continuar?')) {
+                return;
+            }
+            
             const file = input.files[0];
             const reader = new FileReader();
             
@@ -696,19 +700,6 @@
         async function init() {
             try {
                 await initDB();
-                
-                const autoBackup = localStorage.getItem('backup_auto');
-                if (autoBackup && state.objetos.length === 0) {
-                    try {
-                        const dados = JSON.parse(autoBackup);
-                        if (dados.objetos && dados.objetos.length > 0) {
-                            for (const obj of dados.objetos) {
-                                await addObjeto(obj);
-                            }
-                        }
-                    } catch(e) {}
-                }
-                
                 await loadObjetos();
             } catch(e) {
                 console.error(e);
